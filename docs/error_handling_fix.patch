@@ -1,0 +1,25 @@
+--- a/src/dropbox_link_generate/services/dropbox_client.py
++++ b/src/dropbox_link_generate/services/dropbox_client.py
+@@ -84,7 +84,12 @@ class DropboxClient:
+             raise DropboxClientError(str(e)) from e
+         except (HttpError, BadInputError) as e:
+             # Check for permission errors before attempting retry
+             error_msg = str(e).lower()
+-            if "not permitted to access this endpoint" in error_msg or "required scope" in error_msg:
++            if "not permitted to access this endpoint" in error_msg:
++                raise DropboxClientError(
++                    "Insufficient app permissions. Please visit https://www.dropbox.com/developers/apps "
++                    "and enable the following scopes for your app: files.metadata.read, sharing.read, sharing.write"
++                ) from e
++            elif "required scope" in error_msg:
+                 raise DropboxClientError(
+                     "Insufficient app permissions. Please visit https://www.dropbox.com/developers/apps "
+                     "and enable the following scopes for your app: files.metadata.read, sharing.read, sharing.write"
+@@ -92,7 +97,7 @@ class DropboxClient:
+
+             # Quick retry once for true network errors
+             try:
+                 return func()
+             except Exception as e2:  # pragma: no cover - rare path
+-                raise DropboxClientError("Network or HTTP error with Dropbox API") from e2
++                raise DropboxClientError(f"Network or HTTP error with Dropbox API: {e2}") from e2
