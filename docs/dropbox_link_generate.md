@@ -100,23 +100,38 @@ pipx install dropbox-link-generate
 cp .env.example .env
 ```
 
-2. 编辑 `.env` 文件，添加你的 Dropbox API token：
+2. 运行 OAuth 授权以获取 refresh token：
+
+```bash
+# 首次使用推荐直接运行交互式命令
+dplk auth
+
+# 或先在环境变量中配置 APP KEY/SECRET 再运行
+export DROPBOX_APP_KEY=your_app_key
+export DROPBOX_APP_SECRET=your_app_secret
+dplk auth
+```
+
+命令会输出需要写入 `.env` 的值：
 
 ```env
-DROPBOX_TOKEN=your_dropbox_access_token_here
+DROPBOX_APP_KEY=your_app_key
+DROPBOX_APP_SECRET=your_app_secret
+DROPBOX_REFRESH_TOKEN=your_refresh_token
+# 可选：缓存短期 access token，SDK 会在缺省时自动刷新
+# DROPBOX_ACCESS_TOKEN=your_short_lived_access_token
 DROPBOX_ROOT=/Users/your_username/Dropbox
-# 可选：用于存放目录压缩包的 Dropbox 内部目录
 # DROPBOX_ARCHIVE_DIR=/Users/your_username/Dropbox/Archives
 ```
 
 `DROPBOX_ARCHIVE_DIR` 必须位于 `DROPBOX_ROOT` 之下。向 CLI 传入目录时，工具会先将其压缩成同名 ZIP，移动到该目录后再生成共享链接。
 
-### 获取 Dropbox API Token
+### 获取 Dropbox OAuth 凭据（手动）
 
 1. 访问 [Dropbox App Console](https://www.dropbox.com/developers/apps)
-2. 创建新应用或选择现有应用
-3. 在权限设置中启用 `sharing.write` 权限
-4. 生成 Access Token
+2. 创建新应用或选择现有应用，并启用 `sharing.read`、`sharing.write`、`files.metadata.read`
+3. 保存权限设置后，按照 [官方 OAuth 指南](https://developers.dropbox.com/oauth-guide) 执行授权
+4. 将 APP key、APP secret、refresh token 写入 `.env`
 
 ## 使用方法
 
@@ -2187,12 +2202,16 @@ def test_symlink_outside_root_even_if_target_inside_rejected(tmp_path: Path):
 ================================================
 FILE: .history/.env_20251021190807
 ================================================
-DROPBOX_TOKEN=your_dropbox_access_token_here
+DROPBOX_APP_KEY=your_dropbox_app_key
+DROPBOX_APP_SECRET=your_dropbox_app_secret
+DROPBOX_REFRESH_TOKEN=your_dropbox_refresh_token
 DROPBOX_ROOT=/Users/niceday/Developer/Cloud/Dropbox
 
 
 ================================================
 FILE: .history/.env_20251104232242
 ================================================
-DROPBOX_TOKEN=<REDACTED_DROPBOX_TOKEN>
+DROPBOX_APP_KEY=<REDACTED_APP_KEY>
+DROPBOX_APP_SECRET=<REDACTED_APP_SECRET>
+DROPBOX_REFRESH_TOKEN=<REDACTED_REFRESH_TOKEN>
 DROPBOX_ROOT=/Users/niceday/Developer/Cloud/Dropbox

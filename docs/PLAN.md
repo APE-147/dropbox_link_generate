@@ -14,7 +14,7 @@
 已确定的方案选择：
 1. 优先级权重：保持现有权重（方案A）
 2. 目标用户：个人快速分享（方案A）
-3. 凭据方式：.env 读取 DROPBOX_TOKEN 调用官方API（方案A）
+3. 凭据方式：.env 读取 DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN 调用官方API（方案A）
 4. 执行形态：纯Python CLI（dplk 入口）（方案A）
 5. 路径判定：.env 指定唯一 DROPBOX_ROOT 严格校验（方案A）
 6. 链接权限：持链接即可访问（无密码/不过期）（方案A）

@@ -14,8 +14,11 @@ def test_cli_success(tmp_path, monkeypatch):
     f.write_text("hello")
 
     # Env config
-    monkeypatch.setenv("DROPBOX_TOKEN", "token")
+    monkeypatch.setenv("DROPBOX_APP_KEY", "app_key")
+    monkeypatch.setenv("DROPBOX_APP_SECRET", "app_secret")
+    monkeypatch.setenv("DROPBOX_REFRESH_TOKEN", "refresh")
     monkeypatch.setenv("DROPBOX_ROOT", str(root))
+    monkeypatch.setenv("DROPBOX_ARCHIVE_DIR", "")
 
     # Stub clipboard copy to avoid external deps
     monkeypatch.setattr(
@@ -43,8 +46,11 @@ def test_cli_reject_outside_root(tmp_path, monkeypatch):
     root.mkdir()
     f = tmp_path / "outside.txt"
     f.write_text("hi")
-    monkeypatch.setenv("DROPBOX_TOKEN", "token")
+    monkeypatch.setenv("DROPBOX_APP_KEY", "app_key")
+    monkeypatch.setenv("DROPBOX_APP_SECRET", "app_secret")
+    monkeypatch.setenv("DROPBOX_REFRESH_TOKEN", "refresh")
     monkeypatch.setenv("DROPBOX_ROOT", str(root))
+    monkeypatch.setenv("DROPBOX_ARCHIVE_DIR", "")
 
     runner = CliRunner()
     result = runner.invoke(main, [str(f)])
@@ -62,7 +68,9 @@ def test_cli_archives_directory(tmp_path, monkeypatch):
 
     archive_dir = root / "archives"
 
-    monkeypatch.setenv("DROPBOX_TOKEN", "token")
+    monkeypatch.setenv("DROPBOX_APP_KEY", "app_key")
+    monkeypatch.setenv("DROPBOX_APP_SECRET", "app_secret")
+    monkeypatch.setenv("DROPBOX_REFRESH_TOKEN", "refresh")
     monkeypatch.setenv("DROPBOX_ROOT", str(root))
     monkeypatch.setenv("DROPBOX_ARCHIVE_DIR", str(archive_dir))
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Dropbox Permissions Checker Tool
-Quick utility to verify Dropbox API token permissions
+Quick utility to verify Dropbox OAuth credentials and permissions
 """
 
 import sys
@@ -13,34 +13,43 @@ from dotenv import load_dotenv
 import dropbox
 from dropbox.exceptions import AuthError, ApiError
 
+
 def check_dropbox_permissions():
-    """Check if the Dropbox token has required permissions."""
+    """Check if the Dropbox OAuth credentials have required permissions."""
 
-    # Load configuration
     load_dotenv()
-    token = os.getenv("DROPBOX_TOKEN")
+    app_key = os.getenv("DROPBOX_APP_KEY", "").strip()
+    app_secret = os.getenv("DROPBOX_APP_SECRET", "").strip()
+    refresh_token = os.getenv("DROPBOX_REFRESH_TOKEN", "").strip()
+    access_token = os.getenv("DROPBOX_ACCESS_TOKEN", "").strip() or None
 
-    if not token:
-        print("❌ Error: DROPBOX_TOKEN not found in environment/.env")
+    if not app_key or not app_secret or not refresh_token:
+        print("❌ Error: Missing OAuth credentials in environment/.env")
+        print("   Required variables: DROPBOX_APP_KEY, DROPBOX_APP_SECRET, DROPBOX_REFRESH_TOKEN")
         return False
 
     print("=== Dropbox Permissions Checker ===")
-    print(f"Token length: {len(token)}")
-    print(f"Token prefix: {token[:30]}...")
+    if access_token:
+        print(f"Access token length: {len(access_token)}")
+        print(f"Access token prefix: {access_token[:30]}...")
+    else:
+        print("No cached short-lived access token found; SDK will refresh automatically.")
 
     try:
-        # Initialize Dropbox client
-        dbx = dropbox.Dropbox(oauth2_access_token=token, timeout=10.0)
+        dbx = dropbox.Dropbox(
+            app_key=app_key,
+            app_secret=app_secret,
+            oauth2_refresh_token=refresh_token,
+            oauth2_access_token=access_token,
+            timeout=10.0,
+        )
 
-        # Test 1: Basic authentication
         print("\n1. Testing basic authentication...")
         user_result = dbx.users_get_current_account()
         print(f"✅ Auth successful: {user_result.name.display_name} ({user_result.email})")
 
-        # Test 2: sharing.read permission (list shared links)
         print("\n2. Testing sharing.read permission...")
         try:
-            # Try to list shared links for a common file
             res = dbx.sharing_list_shared_links(path="/README.md", direct_only=True)
             print("✅ sharing.read permission: OK")
         except AuthError as e:
@@ -54,11 +63,10 @@ def check_dropbox_permissions():
             else:
                 print(f"❌ sharing.read permission: ERROR - {e}")
 
-        # Test 3: sharing.write permission (create shared links)
         print("\n3. Testing sharing.write permission...")
         try:
-            # Try to create a shared link for a test file (this might fail if file doesn't exist)
             from dropbox.sharing import RequestedVisibility, SharedLinkSettings
+
             settings = SharedLinkSettings(requested_visibility=RequestedVisibility.public)
             res = dbx.sharing_create_shared_link_with_settings(path="/README.md", settings=settings)
             print("✅ sharing.write permission: OK")
@@ -74,7 +82,6 @@ def check_dropbox_permissions():
             else:
                 print(f"❌ sharing.write permission: ERROR - {e}")
         except ApiError as e:
-            # File doesn't exist, but we have the permission
             if hasattr(e, 'error') and 'path' in str(e.error).lower():
                 print("✅ sharing.write permission: OK (file doesn't exist, but permission is present)")
             else:
@@ -87,8 +94,8 @@ def check_dropbox_permissions():
         print("3. Add the missing permissions:")
         print("   - sharing.read (for listing shared links)")
         print("   - sharing.write (for creating shared links)")
-        print("4. Click 'Submit' and regenerate your access token")
-        print("5. Update DROPBOX_TOKEN in your .env file")
+        print("4. Click 'Submit' and re-run your OAuth flow")
+        print("5. Update DROPBOX_REFRESH_TOKEN in your .env file")
 
         return True
 
@@ -96,6 +103,7 @@ def check_dropbox_permissions():
         print(f"❌ Authentication failed: {e}")
         print(f"Error type: {type(e).__name__}")
         return False
+
 
 if __name__ == "__main__":
     check_dropbox_permissions()

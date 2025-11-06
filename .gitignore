@@ -7,6 +7,9 @@ __pycache__/
 .history/
 .history/*
 .history/**
+.specstory/
+.specstory/*
+.specstory/**
 
 # C extensions
 *.so

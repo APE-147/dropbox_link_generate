@@ -19,10 +19,10 @@ Q2 目标用户与首要场景？
 请使用方案A
 
 Q3 凭据与接入方式？
-选项：A .env 读取 DROPBOX_TOKEN 调用官方API ★｜B 调用本机Dropbox客户端/CLI｜C 首次OAuth浏览器授权并缓存
+选项：A .env 读取静态访问令牌调用官方API｜B 调用本机Dropbox客户端/CLI｜C 首次OAuth浏览器授权并缓存 ★
 效果（UX对比）：A 配置清晰可移植；B 依赖本机环境差异大；C 安全强但引导成本高（A 4.5｜B 4.0｜C 4.1）（基于假设：可用官方API）
 
-请使用方案A
+请使用方案C（通过 OAuth 生成 refresh token，写入 .env 中的 APP KEY/SECRET/REFRESH TOKEN）
 
 Q4 执行与安装形态？
 选项：A 纯Python CLI（dplk 入口）★｜B 单Bash脚本｜C 作为现有脚本库插件

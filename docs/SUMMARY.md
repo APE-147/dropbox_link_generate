@@ -81,7 +81,7 @@ pip install -e .
 ### 配置
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，设置 DROPBOX_TOKEN 和 DROPBOX_ROOT
+# 运行 dplk auth 并在 .env 中写入 DROPBOX_APP_KEY / DROPBOX_APP_SECRET / DROPBOX_REFRESH_TOKEN / DROPBOX_ROOT
 ```
 
 ### 使用

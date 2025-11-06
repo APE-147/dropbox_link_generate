@@ -9,17 +9,14 @@ import dropbox
 from dropbox.exceptions import ApiError, AuthError, BadInputError, HttpError
 from dropbox.sharing import RequestedVisibility, SharedLinkSettings
 
-from ..utils.errors import (
-    DropboxClientError,
-    DropboxRateLimitError,
-)
+from ..utils.config import DropboxOAuthCredentials
+from ..utils.errors import DropboxClientError, DropboxRateLimitError
 
 
 def _to_raw_url(url: str) -> str:
     """Convert a Dropbox share URL to raw content URL (?raw=1)."""
     parts = list(urlparse(url))
     query = dict(parse_qsl(parts[4]))
-    # Clear conflicting params (dl), prefer raw=1
     query.pop("dl", None)
     query["raw"] = "1"
     parts[4] = urlencode(query)
@@ -28,36 +25,28 @@ def _to_raw_url(url: str) -> str:
 
 @dataclass
 class DropboxClient:
-    token: str
+    credentials: DropboxOAuthCredentials
     timeout: float = 5.0
     user_agent: Optional[str] = None
 
     def __post_init__(self) -> None:
-        headers = {}
-        if self.user_agent:
-            headers["User-Agent"] = self.user_agent
-        # The official SDK takes a timeout parameter (seconds)
-        self._dbx = dropbox.Dropbox(oauth2_access_token=self.token, timeout=self.timeout)
+        self._dbx = dropbox.Dropbox(
+            timeout=self.timeout,
+            user_agent=self.user_agent,
+            oauth2_access_token=self.credentials.access_token,
+            oauth2_refresh_token=self.credentials.refresh_token,
+            app_key=self.credentials.app_key,
+            app_secret=self.credentials.app_secret,
+        )
 
     def get_or_create_shared_link(self, path: str) -> str:
-        """Return a raw shared link for the given Dropbox path.
-
-        Behavior:
-        - If a shared link already exists, reuse it (idempotent)
-        - Otherwise create with public visibility
-        - 5s timeout per call, 1 quick retry on transient errors
-        - On 429, perform a brief backoff and retry once
-        """
-        # First: try listing existing links
         url = self._with_retry(lambda: self._list_first_shared_link(path))
         if url:
             return _to_raw_url(url)
 
-        # Create new link
         created_url = self._with_retry(lambda: self._create_shared_link(path))
         return _to_raw_url(created_url)
 
-    # Internal helpers -----------------------------------------------------
     def _list_first_shared_link(self, path: str) -> Optional[str]:
         res = self._dbx.sharing_list_shared_links(path=path, direct_only=True)
         links = res.links or []
@@ -71,12 +60,14 @@ class DropboxClient:
     def _with_retry(self, func):
         try:
             return func()
-        except AuthError as e:  # invalid token etc.
-            raise DropboxClientError("Authentication with Dropbox failed") from e
+        except AuthError as e:
+            raise DropboxClientError(
+                "Authentication with Dropbox failed. "
+                "Please verify DROPBOX_APP_KEY, DROPBOX_APP_SECRET, and DROPBOX_REFRESH_TOKEN "
+                "or run `dplk auth` to refresh credentials."
+            ) from e
         except ApiError as e:
-            # ApiError may wrap HTTP errors; check for 429
             if getattr(e, "status_code", None) == 429:
-                # minimal backoff then retry once
                 time.sleep(1.0)
                 try:
                     return func()
@@ -84,12 +75,10 @@ class DropboxClient:
                     raise DropboxRateLimitError("Rate limit exceeded (429)") from e2
             raise DropboxClientError(str(e)) from e
         except (HttpError, BadInputError) as e:
-            # Quick retry once
             try:
                 return func()
-            except Exception as e2:  # pragma: no cover - rare path
+            except Exception as e2:  # pragma: no cover
                 raise DropboxClientError("Network or HTTP error with Dropbox API") from e2
 
 
 __all__ = ["DropboxClient", "_to_raw_url"]
-

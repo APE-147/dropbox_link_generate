@@ -17,17 +17,47 @@ from dropbox.exceptions import ApiError, AuthError, BadInputError, HttpError
 # 加载环境变量
 load_dotenv()
 
+
+def _load_oauth_credentials():
+    app_key = os.getenv('DROPBOX_APP_KEY', '').strip()
+    app_secret = os.getenv('DROPBOX_APP_SECRET', '').strip()
+    refresh_token = os.getenv('DROPBOX_REFRESH_TOKEN', '').strip()
+    access_token = os.getenv('DROPBOX_ACCESS_TOKEN', '').strip() or None
+    return app_key, app_secret, refresh_token, access_token
+
+
+def _build_client():
+    app_key, app_secret, refresh_token, access_token = _load_oauth_credentials()
+    missing = []
+    if not app_key:
+        missing.append('DROPBOX_APP_KEY')
+    if not app_secret:
+        missing.append('DROPBOX_APP_SECRET')
+    if not refresh_token:
+        missing.append('DROPBOX_REFRESH_TOKEN')
+
+    if missing:
+        print(f"❌ 错误：未找到 {'、'.join(missing)}")
+        print("💡 解决方案：运行 `dplk auth` 或将 OAuth 凭据添加到 .env")
+        return None
+
+    return dropbox.Dropbox(
+        app_key=app_key,
+        app_secret=app_secret,
+        oauth2_refresh_token=refresh_token,
+        oauth2_access_token=access_token,
+        timeout=10.0,
+    )
+
+
 def test_basic_auth():
     """测试基本认证"""
     print("=== 测试基本认证 ===")
-    token = os.getenv('DROPBOX_TOKEN', '').strip()
-
-    if not token:
-        print("❌ 错误：未找到DROPBOX_TOKEN")
-        return False
 
     try:
-        dbx = dropbox.Dropbox(oauth2_access_token=token, timeout=10.0)
+        dbx = _build_client()
+        if dbx is None:
+            return False
         result = dbx.users_get_current_account()
         print(f"✅ 认证成功：{result.name.display_name} ({result.email})")
         return True
@@ -35,14 +65,16 @@ def test_basic_auth():
         print(f"❌ 认证失败：{type(e).__name__}: {e}")
         return False
 
+
 def test_file_metadata():
     """测试文件元数据访问"""
     print("\n=== 测试文件元数据访问 ===")
-    token = os.getenv('DROPBOX_TOKEN', '').strip()
     target_file = "/-Code-/Scripts/system/data-storage/dropbox_link_generate/docs/REQUIRES.md"
 
     try:
-        dbx = dropbox.Dropbox(oauth2_access_token=token, timeout=10.0)
+        dbx = _build_client()
+        if dbx is None:
+            return False
         metadata = dbx.files_get_metadata(target_file)
         print(f"✅ 文件元数据访问成功：{metadata.name}")
         return True
@@ -57,14 +89,16 @@ def test_file_metadata():
         print(f"❌ 其他错误：{type(e).__name__}: {e}")
         return False
 
+
 def test_sharing_read():
     """测试共享链接读取"""
     print("\n=== 测试共享链接读取 ===")
-    token = os.getenv('DROPBOX_TOKEN', '').strip()
     target_file = "/-Code-/Scripts/system/data-storage/dropbox_link_generate/docs/REQUIRES.md"
 
     try:
-        dbx = dropbox.Dropbox(oauth2_access_token=token, timeout=10.0)
+        dbx = _build_client()
+        if dbx is None:
+            return False
         result = dbx.sharing_list_shared_links(path=target_file, direct_only=True)
         print(f"✅ 共享链接读取成功：找到 {len(result.links) if result.links else 0} 个现有链接")
         return True
@@ -79,14 +113,16 @@ def test_sharing_read():
         print(f"❌ 其他错误：{type(e).__name__}: {e}")
         return False
 
+
 def test_sharing_write():
     """测试共享链接创建"""
     print("\n=== 测试共享链接创建 ===")
-    token = os.getenv('DROPBOX_TOKEN', '').strip()
     target_file = "/-Code-/Scripts/system/data-storage/dropbox_link_generate/docs/REQUIRES.md"
 
     try:
-        dbx = dropbox.Dropbox(oauth2_access_token=token, timeout=10.0)
+        dbx = _build_client()
+        if dbx is None:
+            return False
         from dropbox.sharing import RequestedVisibility, SharedLinkSettings
 
         settings = SharedLinkSettings(requested_visibility=RequestedVisibility.public)
@@ -104,12 +140,12 @@ def test_sharing_write():
         print(f"❌ 其他错误：{type(e).__name__}: {e}")
         return False
 
+
 def test_app_configuration():
     """测试应用配置"""
     print("\n=== 应用配置检查 ===")
 
-    # 检查环境变量
-    required_vars = ['DROPBOX_TOKEN', 'DROPBOX_ROOT']
+    required_vars = ['DROPBOX_APP_KEY', 'DROPBOX_APP_SECRET', 'DROPBOX_REFRESH_TOKEN', 'DROPBOX_ROOT']
     missing_vars = []
 
     for var in required_vars:
@@ -123,7 +159,6 @@ def test_app_configuration():
         print(f"❌ 缺少环境变量：{', '.join(missing_vars)}")
         return False
 
-    # 检查Dropbox根目录
     dropbox_root = Path(os.getenv('DROPBOX_ROOT')).expanduser()
     if dropbox_root.exists() and dropbox_root.is_dir():
         print(f"✅ Dropbox根目录：{dropbox_root}")
@@ -133,24 +168,22 @@ def test_app_configuration():
 
     return True
 
+
 def main():
     """主函数"""
     print("Dropbox API 诊断工具")
     print("=" * 50)
 
-    # 测试应用配置
     config_ok = test_app_configuration()
     if not config_ok:
         print("\n❌ 应用配置有问题，请先修复配置")
         return
 
-    # 测试基本认证
     auth_ok = test_basic_auth()
     if not auth_ok:
-        print("\n❌ 认证失败，请检查访问令牌")
+        print("\n❌ 认证失败，请检查 OAuth 凭据或重新运行 dplk auth")
         return
 
-    # 测试各项权限
     tests = [
         ("文件元数据权限", test_file_metadata),
         ("共享读取权限", test_sharing_read),
@@ -161,7 +194,6 @@ def main():
     for test_name, test_func in tests:
         results.append((test_name, test_func()))
 
-    # 总结
     print("\n" + "=" * 50)
     print("诊断总结：")
 
@@ -177,14 +209,11 @@ def main():
 
         print("\n💡 解决步骤：")
         print("1. 访问 https://www.dropbox.com/developers/apps")
-        print("2. 找到您的应用 (App ID: 7772513)")
-        print("3. 转到 'Permissions' 标签页")
-        print("4. 启用以下权限：")
-        print("   - files.metadata.read")
-        print("   - sharing.read")
-        print("   - sharing.write")
-        print("5. 重新生成访问令牌")
-        print("6. 更新 .env 文件中的 DROPBOX_TOKEN")
+        print("2. 找到您的应用并检查权限设置")
+        print("3. 确认已启用 files.metadata.read / sharing.read / sharing.write")
+        print("4. 重新运行 `dplk auth` 生成新的 refresh token")
+        print("5. 更新 .env 文件中的 DROPBOX_REFRESH_TOKEN 并重试")
+
 
 if __name__ == "__main__":
     main()

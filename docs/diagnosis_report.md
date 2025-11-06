@@ -52,10 +52,10 @@ except (HttpError, BadInputError) as e:
      - `sharing.read` - Sharing - read
      - `sharing.write` - Sharing - write
 
-3. **重新生成访问令牌**：
-   - 权限更改后，需要重新生成访问令牌
-   - 在"Settings"标签页中找到"Generated access token"部分
-   - 生成新的访问令牌并更新 `.env` 文件中的 `DROPBOX_TOKEN`
+3. **重新执行 OAuth 授权**：
+   - 权限更改后，需要重新执行 OAuth 流程以获取新的 refresh token
+   - 运行 `dplk auth`（或按 OAuth 指南手动执行授权）
+   - 将输出的 `DROPBOX_APP_KEY`、`DROPBOX_APP_SECRET`、`DROPBOX_REFRESH_TOKEN` 更新到 `.env`
 
 ### 方案2：改进错误处理
 
@@ -84,9 +84,12 @@ import dropbox
 from dotenv import load_dotenv
 
 load_dotenv()
-token = os.getenv('DROPBOX_TOKEN', '').strip()
-
-dbx = dropbox.Dropbox(oauth2_access_token=token)
+dbx = dropbox.Dropbox(
+    app_key=os.getenv('DROPBOX_APP_KEY'),
+    app_secret=os.getenv('DROPBOX_APP_SECRET'),
+    oauth2_refresh_token=os.getenv('DROPBOX_REFRESH_TOKEN'),
+    oauth2_access_token=os.getenv('DROPBOX_ACCESS_TOKEN'),
+)
 result = dbx.users_get_current_account()
 print(f"Authentication successful: {result.name.display_name}")
 ```

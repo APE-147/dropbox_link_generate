@@ -11,8 +11,16 @@ from .errors import ConfigError
 
 
 @dataclass
+class DropboxOAuthCredentials:
+    app_key: str
+    app_secret: str
+    refresh_token: str
+    access_token: Optional[str] = None
+
+
+@dataclass
 class Config:
-    token: str
+    oauth: DropboxOAuthCredentials
     dropbox_root: Path
     verbose: bool = False
     log_file: Optional[str] = None
@@ -23,29 +31,38 @@ class Config:
         """Load configuration from environment and optional .env file.
 
         Required:
-        - DROPBOX_TOKEN
+        - DROPBOX_APP_KEY
+        - DROPBOX_APP_SECRET
+        - DROPBOX_REFRESH_TOKEN
         - DROPBOX_ROOT (absolute path)
         Optional:
+        - DROPBOX_ACCESS_TOKEN (prefetched short-lived token)
         - VERBOSE (truthy values)
         - LOG_FILE
         """
-        # Load .env if present (env_path can be directory or file)
         if env_path is not None:
             if env_path.is_dir():
                 load_dotenv(env_path / ".env")
             else:
                 load_dotenv(env_path)
         else:
-            load_dotenv()  # default: search upward
+            load_dotenv()
 
-        token = os.getenv("DROPBOX_TOKEN", "").strip()
+        refresh_token = os.getenv("DROPBOX_REFRESH_TOKEN", "").strip()
+        app_key = os.getenv("DROPBOX_APP_KEY", "").strip()
+        app_secret = os.getenv("DROPBOX_APP_SECRET", "").strip()
+        access_token = os.getenv("DROPBOX_ACCESS_TOKEN", "").strip() or None
         root_str = os.getenv("DROPBOX_ROOT", "").strip()
         verbose_str = os.getenv("VERBOSE", "").strip().lower()
         log_file = os.getenv("LOG_FILE", "").strip() or None
         archive_str = os.getenv("DROPBOX_ARCHIVE_DIR", "").strip()
 
-        if not token:
-            raise ConfigError("Missing DROPBOX_TOKEN in environment/.env")
+        if not app_key:
+            raise ConfigError("Missing DROPBOX_APP_KEY in environment/.env")
+        if not app_secret:
+            raise ConfigError("Missing DROPBOX_APP_SECRET in environment/.env")
+        if not refresh_token:
+            raise ConfigError("Missing DROPBOX_REFRESH_TOKEN in environment/.env")
         if not root_str:
             raise ConfigError("Missing DROPBOX_ROOT in environment/.env")
 
@@ -71,8 +88,14 @@ class Config:
                 raise ConfigError("DROPBOX_ARCHIVE_DIR must be inside DROPBOX_ROOT")
 
         verbose = verbose_str in {"1", "true", "yes", "on"}
+        credentials = DropboxOAuthCredentials(
+            app_key=app_key,
+            app_secret=app_secret,
+            refresh_token=refresh_token,
+            access_token=access_token,
+        )
         return cls(
-            token=token,
+            oauth=credentials,
             dropbox_root=root,
             verbose=verbose,
             log_file=log_file,

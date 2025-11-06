@@ -48,7 +48,7 @@
     - 证据：utils/errors.py、utils/logging.py、CLI统一非零退出码
 
 - [x] Task-8: 创建配置文件支持
-    - 要求：支持.env配置文件，读取DROPBOX_TOKEN和DROPBOX_ROOT
+    - 要求：支持.env配置文件，读取DROPBOX_APP_KEY、DROPBOX_APP_SECRET、DROPBOX_REFRESH_TOKEN 和 DROPBOX_ROOT
     - 说明：实现配置文件加载和验证
     - 测试：测试配置文件的读取和验证
     - 证据：.env.example、utils/config.py、tests/test_config.py
