@@ -36,7 +36,12 @@ def main(verbose: bool, log_file: str | None, no_copy: bool, path: Path) -> None
         logger.debug("Loaded configuration: root=%s", cfg.dropbox_root)
 
         client = DropboxClient(token=cfg.token, timeout=5.0, user_agent="dplk/0.1")
-        generator = DropboxLinkGenerator(dropbox_root=cfg.dropbox_root, client=client, logger=logger)
+        generator = DropboxLinkGenerator(
+            dropbox_root=cfg.dropbox_root,
+            client=client,
+            logger=logger,
+            archive_dir=cfg.archive_dir,
+        )
 
         link = generator.generate(path, copy=not no_copy)
         # Per requirements, print only the URL to stdout
@@ -59,4 +64,3 @@ def main(verbose: bool, log_file: str | None, no_copy: bool, path: Path) -> None
 
 if __name__ == "__main__":  # pragma: no cover
     main()
-

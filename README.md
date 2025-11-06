@@ -10,6 +10,7 @@
 - 🔄 幂等操作，复用已存在的共享链接
 - 🛡️ 安全的错误处理和明确的错误信息
 - 📝 可选的详细日志记录
+- 📦 若输入目录，自动压缩为 ZIP 后再生成链接
 
 ## 安装
 
@@ -43,7 +44,11 @@ cp .env.example .env
 ```env
 DROPBOX_TOKEN=your_dropbox_access_token_here
 DROPBOX_ROOT=/Users/your_username/Dropbox
+# 可选：用于存放目录压缩包的 Dropbox 内部目录
+# DROPBOX_ARCHIVE_DIR=/Users/your_username/Dropbox/Archives
 ```
+
+`DROPBOX_ARCHIVE_DIR` 必须位于 `DROPBOX_ROOT` 之下。当你向 CLI 传入一个目录时，工具会将其压缩成同名 ZIP，移动到该目录后再生成共享链接。
 
 ### 获取 Dropbox API Token
 
@@ -75,6 +80,9 @@ dplk --log-file /tmp/dplk.log /path/to/file.txt
 
 # 不复制到剪贴板
 dplk --no-copy /path/to/file.txt
+
+# 传入目录时会先压缩为 ZIP，再移动到 DROPBOX_ARCHIVE_DIR 后生成链接
+dplk /path/to/folder
 ```
 
 ## 错误处理
