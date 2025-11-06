@@ -16,6 +16,7 @@ class Config:
     dropbox_root: Path
     verbose: bool = False
     log_file: Optional[str] = None
+    archive_dir: Optional[Path] = None
 
     @classmethod
     def from_env(cls, env_path: Optional[Path] = None) -> "Config":
@@ -41,6 +42,7 @@ class Config:
         root_str = os.getenv("DROPBOX_ROOT", "").strip()
         verbose_str = os.getenv("VERBOSE", "").strip().lower()
         log_file = os.getenv("LOG_FILE", "").strip() or None
+        archive_str = os.getenv("DROPBOX_ARCHIVE_DIR", "").strip()
 
         if not token:
             raise ConfigError("Missing DROPBOX_TOKEN in environment/.env")
@@ -53,6 +55,26 @@ class Config:
         if not root.exists() or not root.is_dir():
             raise ConfigError("DROPBOX_ROOT does not exist or is not a directory")
 
-        verbose = verbose_str in {"1", "true", "yes", "on"}
-        return cls(token=token, dropbox_root=root, verbose=verbose, log_file=log_file)
+        archive_dir: Optional[Path] = None
+        if archive_str:
+            archive_dir = Path(archive_str).expanduser()
+            if not archive_dir.is_absolute():
+                raise ConfigError("DROPBOX_ARCHIVE_DIR must be an absolute path")
+            if archive_dir.exists() and not archive_dir.is_dir():
+                raise ConfigError("DROPBOX_ARCHIVE_DIR must be a directory")
 
+            resolved_root = root.resolve()
+            resolved_archive = archive_dir.resolve()
+            try:
+                resolved_archive.relative_to(resolved_root)
+            except ValueError:
+                raise ConfigError("DROPBOX_ARCHIVE_DIR must be inside DROPBOX_ROOT")
+
+        verbose = verbose_str in {"1", "true", "yes", "on"}
+        return cls(
+            token=token,
+            dropbox_root=root,
+            verbose=verbose,
+            log_file=log_file,
+            archive_dir=archive_dir,
+        )
