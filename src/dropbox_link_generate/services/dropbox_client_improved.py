@@ -10,7 +10,7 @@ from dropbox.exceptions import ApiError, AuthError, BadInputError, HttpError
 from dropbox.sharing import RequestedVisibility, SharedLinkSettings
 
 from ..utils.config import DropboxOAuthCredentials
-from ..utils.errors import DropboxClientError, DropboxRateLimitError
+from ..utils.errors import DropboxAuthError, DropboxClientError, DropboxRateLimitError
 
 
 def _to_raw_url(url: str) -> str:
@@ -62,7 +62,7 @@ class DropboxClient:
             return func()
         except AuthError as e:
             error_msg = self._format_auth_error(e)
-            raise DropboxClientError(error_msg) from e
+            raise DropboxAuthError(error_msg) from e
         except ApiError as e:
             if getattr(e, "status_code", None) == 429:
                 time.sleep(1.0)

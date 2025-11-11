@@ -21,3 +21,6 @@ class DropboxClientError(DplkError):
 class DropboxRateLimitError(DropboxClientError):
     """Raised on HTTP 429 rate limit responses."""
 
+
+class DropboxAuthError(DropboxClientError):
+    """Raised when Dropbox authentication fails."""

@@ -10,7 +10,7 @@ from dropbox.exceptions import ApiError, AuthError, BadInputError, HttpError
 from dropbox.sharing import RequestedVisibility, SharedLinkSettings
 
 from ..utils.config import DropboxOAuthCredentials
-from ..utils.errors import DropboxClientError, DropboxRateLimitError
+from ..utils.errors import DropboxAuthError, DropboxClientError, DropboxRateLimitError
 
 
 def _to_raw_url(url: str) -> str:
@@ -61,7 +61,7 @@ class DropboxClient:
         try:
             return func()
         except AuthError as e:
-            raise DropboxClientError(
+            raise DropboxAuthError(
                 "Authentication with Dropbox failed. "
                 "Please verify DROPBOX_APP_KEY, DROPBOX_APP_SECRET, and DROPBOX_REFRESH_TOKEN "
                 "or run `dplk auth` to refresh credentials."
