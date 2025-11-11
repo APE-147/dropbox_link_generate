@@ -14,22 +14,30 @@
 
 ## 安装
 
-### 本地安装
+### 使用 uv（推荐）
 
 ```bash
 # 克隆仓库
 git clone https://github.com/niceday/dropbox-link-generate.git
 cd dropbox-link-generate
 
-# 安装依赖
-pip install -e .
+# 创建/同步本地虚拟环境（会自动读取 pyproject + uv.lock）
+uv sync
+
+# 在隔离环境中运行 CLI
+uv run dplk /path/to/file.txt
 ```
 
-### 使用 pipx (推荐)
+如需将 CLI 安装到全局 `uv tool` 环境，可在同步后执行：
 
 ```bash
-pipx install dropbox-link-generate
+uv tool install --path . dplk
 ```
+
+### 其他方式
+
+- `pip install -e .`：适用于不使用 uv 的传统虚拟环境
+- `pipx install dropbox-link-generate`：在系统范围安装（需已发布到 PyPI，或手动指定 `--source`）
 
 ## 配置
 
@@ -103,6 +111,25 @@ dplk --no-copy /path/to/file.txt
 dplk /path/to/folder
 ```
 
+## 诊断与结构命令
+
+为配合 `project-structure` 规范与生产环境排障，CLI 还提供以下命令：
+
+| 命令 | 说明 |
+| --- | --- |
+| `dplk check-tree` | 验证根目录、docs、data 符号链接、version.py 等是否符合规范 |
+| `dplk normalize` | 自动创建缺失的数据目录/文档文件，修复 data 符号链接 |
+| `dplk check-env` | 检查必需的 Dropbox 环境变量及 `DROPBOX_ROOT` 路径 |
+| `dplk doctor` | 综合运行结构 + 环境检查，全部通过后输出 🎉 |
+| `dplk diagnostics permissions|suite|auth-debug` | 运行原调试脚本功能的 Click 子命令 |
+
+示例：
+
+```bash
+uv run dplk doctor
+uv run dplk diagnostics permissions --path /README.md
+```
+
 ## 错误处理
 
 工具会处理以下错误情况：
@@ -116,51 +143,64 @@ dplk /path/to/folder
 
 ## 开发
 
-### 本地开发
+### 使用 uv 的推荐流程
 
 ```bash
-# 克隆仓库
 git clone https://github.com/niceday/dropbox-link-generate.git
 cd dropbox-link-generate
 
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
+# 一次性同步依赖和虚拟环境
+uv sync
+
+# 运行测试 / 工具
+uv run pytest
+uv run black src
+uv run isort src
+uv run mypy src
+
+# 安装或更新依赖
+uv add dropbox --dev pytest
+```
+
+uv 会根据 `pyproject.toml` 与 `uv.lock` 自动创建 `.venv/`，不需要手动激活。若确实需要传统虚拟环境，可参考下方备用方案。
+
+### 传统 virtualenv（可选）
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
 # 或
-venv\Scripts\activate  # Windows
+.venv\Scripts\activate     # Windows
 
-# 安装开发依赖
 pip install -e ".[dev]"
-
-# 运行测试
 pytest
-
-# 代码格式化
-black src/
-isort src/
-
-# 类型检查
-mypy src/
 ```
 
 ### 项目结构
 
 ```
 dropbox-link-generate/
+├── AGENTS.md             # 运行记录
+├── data -> /Users/.../dropbox_link_generate-data  # 外部数据目录符号链接
+├── docs/
+│   ├── REQUIRES.md
+│   ├── PLAN.md
+│   ├── TASKS.md
+│   └── guides/          # 额外指南（SECURITY 等）
 ├── src/dropbox_link_generate/
 │   ├── core/           # 核心功能模块
 │   ├── services/       # 服务层
-│   ├── utils/          # 工具模块
-│   ├── plugins/        # 插件模块
-│   ├── cli.py          # 命令行入口
-│   └── __init__.py
+│   ├── diagnostics/    # 诊断工具（原 check_permissions/debug_auth/test_diagnosis）
+│   ├── utils/          # 工具模块（含 structure.py）
+│   ├── plugins/
+│   ├── version.py
+│   └── cli.py
 ├── tests/              # 测试文件
-├── docs/               # 文档
-├── data/               # 数据目录（符号链接）
-├── pyproject.toml      # 项目配置
-├── README.md           # 项目说明
-├── .env.example        # 环境变量示例
-└── .gitignore          # Git 忽略文件
+├── pyproject.toml      # uv_build 项目声明
+├── uv.lock             # 依赖锁定
+├── project_settings.yaml
+├── README.md
+└── .env.example
 ```
 
 ## 许可证

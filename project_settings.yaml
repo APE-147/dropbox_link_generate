@@ -1,0 +1,22 @@
+project:
+  name: dropbox_link_generate
+  type: cli
+  language: python
+runtime:
+  python:
+    version: "3.10"
+paths:
+  package: src/dropbox_link_generate
+  data: data
+cli:
+  entry: dplk
+  commands:
+    - link
+    - auth
+    - doctor
+    - check-tree
+    - normalize
+    - check-env
+    - diagnostics permissions
+    - diagnostics suite
+    - diagnostics auth-debug

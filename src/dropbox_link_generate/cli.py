@@ -19,6 +19,9 @@ from dropbox.oauth import (
 from dotenv import load_dotenv
 
 from .core.sharing import DropboxLinkGenerator
+from .diagnostics import check_permissions as run_permissions_check
+from .diagnostics import run_auth_debug, run_diagnosis_suite
+from .diagnostics.common import EnvCheck, validate_env
 from .services.dropbox_client import DropboxClient
 from .utils.config import Config
 from .utils.errors import (
@@ -29,6 +32,7 @@ from .utils.errors import (
     PathValidationError,
 )
 from .utils.logging import setup_logging
+from .utils.structure import StructureIssue, check_tree as validate_structure, normalize_structure
 
 
 DEFAULT_SCOPES: tuple[str, ...] = ("sharing.read", "sharing.write", "files.metadata.read")
@@ -113,6 +117,40 @@ def _run_generate(path: Path, verbose: bool, log_file: Optional[str], no_copy: b
         except Exception:  # pragma: no cover
             click.echo("Unexpected error occurred", err=True)
             return 1
+
+
+def _print_structure_issues(issues: list[str]) -> bool:
+    if not issues:
+        click.echo("✅ Project structure matches specification.")
+        return True
+
+    click.echo("❌ Project structure issues detected:")
+    for issue in issues:
+        click.echo(f"  - {issue}")
+    return False
+
+
+def _print_env_report(status: EnvCheck) -> bool:
+    ok = True
+    if status.missing:
+        click.echo("❌ Missing environment variables:")
+        for key in status.missing:
+            click.echo(f"  - {key}")
+        ok = False
+    else:
+        click.echo("✅ Required environment variables are configured.")
+
+    if status.dropbox_root:
+        if status.dropbox_root.exists() and status.dropbox_root.is_dir():
+            click.echo(f"✅ DROPBOX_ROOT: {status.dropbox_root}")
+        else:
+            click.echo(f"❌ DROPBOX_ROOT does not exist: {status.dropbox_root}")
+            ok = False
+    else:
+        click.echo("❌ DROPBOX_ROOT is not set.")
+        ok = False
+
+    return ok
 
 
 def _scopes_to_list(scopes: Iterable[str]) -> list[str]:
@@ -304,6 +342,78 @@ def auth(app_key: Optional[str], app_secret: Optional[str], scopes: tuple[str, .
 
     _apply_auth_result_to_env(result)
     _print_auth_success(result)
+
+
+@cli.command(name="check-tree", help="Validate the repository against the project-structure contract.")
+def check_tree_cmd() -> None:
+    issues = validate_structure()
+    if not _print_structure_issues(issues):
+        raise click.ClickException("项目结构存在问题，请运行 `dplk normalize` 后再试。")
+
+
+@cli.command(help="Create missing folders and normalize the repository layout.")
+def normalize() -> None:
+    try:
+        changes = normalize_structure()
+    except StructureIssue as exc:  # pragma: no cover - manual intervention
+        raise click.ClickException(str(exc)) from exc
+
+    if not changes:
+        click.echo("✅ 项目结构已符合要求，无需修改。")
+    else:
+        click.echo("✅ 已应用以下修复：")
+        for change in changes:
+            click.echo(f"  - {change}")
+
+
+@cli.command(name="check-env", help="Verify mandatory Dropbox environment variables.")
+def check_env_cmd() -> None:
+    status = validate_env()
+    if not _print_env_report(status):
+        raise click.ClickException("环境变量配置不完整。")
+
+
+@cli.command(help="Run structure and environment diagnostics in one go.")
+def doctor() -> None:
+    issues = validate_structure()
+    status = validate_env()
+
+    structure_ok = _print_structure_issues(issues)
+    env_ok = _print_env_report(status)
+
+    if not (structure_ok and env_ok):
+        raise click.ClickException("诊断失败，请按照提示修复问题。")
+
+    click.echo("🎉 所有检查均通过，可放心使用。")
+
+
+@cli.group(help="Legacy diagnostic helpers.")
+def diagnostics() -> None:
+    """Run the legacy diagnostics bundled with the project."""
+
+
+@diagnostics.command("permissions", help="Check Dropbox sharing permissions.")
+@click.option("--path", "target_path", help="Dropbox path to test. Defaults to /README.md.")
+def diagnostics_permissions(target_path: Optional[str]) -> None:
+    success = run_permissions_check(target_path=target_path)
+    if not success:
+        raise click.ClickException("权限检查失败。")
+
+
+@diagnostics.command("suite", help="Run the full diagnosis suite.")
+@click.option("--path", "target_path", help="Dropbox path to test.")
+def diagnostics_suite(target_path: Optional[str]) -> None:
+    success = run_diagnosis_suite(target_path=target_path)
+    if not success:
+        raise click.ClickException("诊断套件检测到问题。")
+
+
+@diagnostics.command("auth-debug", help="Run advanced authentication debug steps.")
+@click.option("--path", "target_path", help="Dropbox path to test.")
+def diagnostics_auth_debug(target_path: Optional[str]) -> None:
+    success = run_auth_debug(test_path=target_path)
+    if not success:
+        raise click.ClickException("认证调试失败，请检查输出。")
 
 
 main = cli
